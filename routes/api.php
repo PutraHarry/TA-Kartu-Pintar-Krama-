@@ -28,8 +28,10 @@ Route::group(['prefix' => 'presensi'], function () {
     Route::post('/detail', 'PresensiController@detail');
     Route::post('/create', 'PresensiController@create');
     Route::post('/fill-presensi', 'PresensiController@fillPresensi');
-    Route::get('/open-presensi', 'PresensiController@openPresensi');
+    Route::get('/open-presensi', 'PresensiController@openClosePresensi');
     Route::get('/get-open', 'PresensiController@getOpen');
+    Route::get('/get-open-krama', 'PresensiController@getOpenKrama');
+    Route::get('/get-filled', 'PresensiController@getFilledPresensi');
 });
 
 

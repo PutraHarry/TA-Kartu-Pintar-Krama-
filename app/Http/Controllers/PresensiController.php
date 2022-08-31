@@ -6,13 +6,13 @@ use Illuminate\Http\Request;
 use App\Models\Presensi;
 use App\Models\PresensiDetail;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Database\Eloquent\Builder;
 
 class PresensiController extends Controller
 {
     public function get()
     {
         $presensi = Presensi::with('presensi_detail', 'kegiatan')->get();
-
         if ($presensi) {
             return response()->json([
                 'statusCode' => 200,
@@ -32,7 +32,8 @@ class PresensiController extends Controller
 
     public function getOpen()
     {
-        $presensi = Presensi::where('is_open', 1)->first();
+        //tambahin id banjar nya??
+        $presensi = Presensi::where('is_open', 1)->get();
 
         if ($presensi) {
             return response()->json([
@@ -61,60 +62,9 @@ class PresensiController extends Controller
             ]);
             if ($response->successful()) {
                 $responseBody = json_decode($response->body());
+                // $presensi->presensi_detail = $responseBody->data;
+                // dd($presensi);
                 if ($responseBody->message == "data cacah krama mipil sukses") {
-                    $presensi['presensi_detail'] = $responseBody->data;
-
-                    return response()->json([
-                        'statusCode' => 200,
-                        'status' => true,
-                        'presensi' => $presensi,
-                        'presensi_detail' => $responseBody->data,
-                        'message' => 'data presensi sukses'
-                    ], 200);
-                } else {
-                    return response()->json([
-                        'statusCode' => 200,
-                        'status' => true,
-                        'presensi' => $presensi,
-                        'presensi_detail' => null,
-                        'message' => 'gagal memuat detail presensi'
-                    ], 200);
-                }
-            } else {
-                return response()->json([
-                    'statusCode' => 200,
-                    'status' => true,
-                    'presensi' => $presensi,
-                    'presensi_detail' => null,
-                    'message' => 'gagal memuat detail presensi'
-                ], 200);
-            }
-        } else {
-            return response()->json([
-                'statusCode' => 500,
-                'status' => false,
-                'presensi' => null,
-                'presensi_detail' => null,
-                'message' => 'data presensi gagal'
-            ], 500);
-        }
-    }
-
-    public function getListKrama(Request $req)
-    {
-        $response = Http::acceptJson()->withToken($req->token)->post("https://sikramat.ngaeapp.com/api/integrasi/return-cacah-krama-mipil", [
-            "data" => json_encode($presensi->presensi_detail)
-        ]);
-
-        $presensi = Presensi::with('presensi_detail', 'kegiatan')->where('id', $req->presensi)->first();
-        if ($presensi) {
-            // tambahin untuk cek detail presensinya
-
-            if ($response->successful()) {
-                $responseBody = json_decode($response->body());
-                if ($responseBody->message == "data cacah krama mipil sukses") {
-                    $presensi['presensi_detail'] = $responseBody->data;
-
                     return response()->json([
                         'statusCode' => 200,
                         'status' => true,
@@ -193,8 +143,6 @@ class PresensiController extends Controller
 
         $fillPresensi = false;
 
-        // add validasi klo misal udh ngisi presensi
-
         if ($presensis->isNotEmpty()) {
             foreach ($presensis as $presensi ) {
                 foreach($presensi->presensi_detail as $presensiDetail) {
@@ -203,6 +151,7 @@ class PresensiController extends Controller
                         $detailPresensi = PresensiDetail::where('presensi_id', $presensi->id)
                                                     ->where('nomor_cacah_krama_mipil', $req->nomor_cacah_krama_mipil)
                                                     ->first();
+                        error_log($detailPresensi);
                         if ($detailPresensi) {
                             if ($detailPresensi->is_hadir == 1) {
                                 return response()->json([
@@ -212,11 +161,12 @@ class PresensiController extends Controller
                                     'message' => 'presensi telah diisi'
                                 ], 200);
                             }
+                           
                             $detailPresensi->is_hadir = 1;
                             $detailPresensi->uid_kartu = "test12345";
                             $detailPresensi->update();
                             $fillPresensi = true;
-
+                            error_log($detailPresensi);
                             return response()->json([
                                 'statusCode' => 200,
                                 'status' => true,
@@ -229,7 +179,7 @@ class PresensiController extends Controller
                     }
                 }
             }
-
+            
             if ($fillPresensi == false) {
                 return response()->json([
                     'statusCode' => 500,
@@ -249,37 +199,85 @@ class PresensiController extends Controller
         }
     }
 
-    public function openPresensi(Request $req)
+    public function openClosePresensi(Request $req)
     {
-        $presensi = Presensi::where('is_open', 1)->first();
+        $presensi = Presensi::where('id', $req->query('presensi'))->first();
+        if ($presensi->is_open == 0) {
+            $presensi->is_open = 1;
+        } else {
+            $presensi->is_open = 0;
+        }
+        $presensi->save();
 
-        if($presensi) {
+        if ($presensi) {
+            return response()->json([
+                'statusCode' => 200,
+                'status' => true,
+                'data' => $presensi,
+                'message' => 'data presensi sukses'
+            ], 200);
+        } else {
             return response()->json([
                 'statusCode' => 500,
                 'status' => false,
                 'data' => null,
-                'message' => 'presensi already open'
-            ], 200);
-        } else {
-            $presensi = Presensi::where('id', $req->query('presensi'))->first();
-            $presensi->is_open = 1;
-            $presensi->save();
-
-            if ($presensi) {
-                return response()->json([
-                    'statusCode' => 200,
-                    'status' => true,
-                    'data' => $presensi,
-                    'message' => 'data presensi sukses'
-                ], 200);
-            } else {
-                return response()->json([
-                    'statusCode' => 500,
-                    'status' => false,
-                    'data' => null,
-                    'message' => 'data presensi gagal'
-                ], 500);
-            }
+                'message' => 'data presensi gagal'
+            ], 500);
         }
     }
+
+    public function getOpenKrama(Request $req)
+    {
+        $presensi = Presensi::with('kegiatan')
+                                ->with(['presensi_krama_detail' =>function($q) use ($req){
+                                    $q->where('nomor_cacah_krama_mipil', $req->query('nic'));
+                                }])
+                                ->whereHas('presensi_krama_detail', function($q) use($req) {
+                                    $q->where('nomor_cacah_krama_mipil', $req->query('nic'));
+                                })->where('is_open',1)->get();
+
+        if ($presensi) {
+            return response()->json([
+                'statusCode' => 200,
+                'status' => true,
+                'data' => $presensi,
+                'message' => 'data presensi sukses'
+            ], 200);
+        } else {
+            return response()->json([
+                'statusCode' => 500,
+                'status' => false,
+                'data' => null,
+                'message' => 'data presensi tidak ada'
+            ], 200);
+        }
+    }
+
+    public function getFilledPresensi(Request $req)
+    {
+        $presensi = Presensi::with('kegiatan')
+                                ->with(['presensi_krama_detail' =>function($q) use ($req){
+                                    $q->where('nomor_cacah_krama_mipil', $req->query('nic'));
+                                }])
+                                ->whereHas('presensi_krama_detail', function($q) use($req) {
+                                    $q->where('nomor_cacah_krama_mipil', $req->query('nic'));
+                                })->get();
+
+        if ($presensi) {
+            return response()->json([
+                'statusCode' => 200,
+                'status' => true,
+                'data' => $presensi,
+                'message' => 'data presensi sukses'
+            ], 200);
+        } else {
+            return response()->json([
+                'statusCode' => 500,
+                'status' => false,
+                'data' => null,
+                'message' => 'data presensi gagal'
+            ], 500);
+        }
+    }
+
 }

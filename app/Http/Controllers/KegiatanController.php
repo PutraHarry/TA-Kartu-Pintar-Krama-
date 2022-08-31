@@ -76,7 +76,6 @@ class KegiatanController extends Controller
     public function edit(Request $req)
     {
         $kegiatan = Kegiatan::where('id', $req->id_kegiatan)->first();
-        error_log($kegiatan);
         $kegiatan->nama_kegiatan = $req->nama_kegiatan;
         $kegiatan->keterangan = $req->keterangan;
         $kegiatan->save();
